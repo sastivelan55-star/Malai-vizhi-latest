@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Menu, X, Bell, LayoutDashboard, AlertTriangle, FileText, BarChart2, HelpCircle, ShieldCheck, LogOut, User } from 'lucide-react';
+import { Menu, X, Bell, LayoutDashboard, AlertTriangle, FileText, Waves, BarChart2, HelpCircle, ShieldCheck, LogOut, User } from 'lucide-react';
 import { Logo } from '../UI/Logo';
 import { StatusBadge } from '../UI/StatusBadge';
 import { InstallPWA } from '../UI/InstallPWA';
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/alerts', label: 'Alerts', icon: AlertTriangle },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/flood-risk', label: 'Flood Risk', icon: Waves },
   { to: '/analytics', label: 'Analytics', icon: BarChart2 },
   { to: '/how-it-works', label: 'How It Works', icon: HelpCircle },
 ];

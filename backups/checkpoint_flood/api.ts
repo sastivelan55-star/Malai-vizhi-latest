@@ -11,9 +11,6 @@ import type {
   AuthResponse,
   FloodStation,
   FloodRiskResponse,
-  DynamicFloodRiskResult,
-  PointRiskAssessment,
-  LocationSearchResult,
 } from '../types';
 
 // Configurable API base URL: respects VITE_API_BASE_URL / VITE_API_URL / VITE_API_BASE.
@@ -198,54 +195,9 @@ export async function getFloodRiskData(): Promise<FloodRiskResponse> {
   return request<FloodRiskResponse>('/api/flood-risk');
 }
 
-export async function getFloodStation(id: number | string): Promise<FloodStation> {
+export async function getFloodStation(id: number): Promise<FloodStation> {
   return request<FloodStation>(`/api/flood-risk/${id}`);
 }
-
-export async function searchFloodLocation(query: string): Promise<DynamicFloodRiskResult> {
-  return request<DynamicFloodRiskResult>(`/api/flood-risk/search?query=${encodeURIComponent(query)}`);
-}
-
-export async function getDynamicFloodRisk(
-  lat: number,
-  lon: number,
-  name?: string,
-  state?: string
-): Promise<DynamicFloodRiskResult> {
-  let url = `/api/flood-risk/location?lat=${lat}&lon=${lon}`;
-  if (name) url += `&name=${encodeURIComponent(name)}`;
-  if (state) url += `&state=${encodeURIComponent(state)}`;
-  return request<DynamicFloodRiskResult>(url);
-}
-
-// ─── Production Point-Level Multi-Hazard Risk Assessment ──────────────────────
-
-export async function assessPointRisk(
-  lat: number,
-  lon: number,
-  name?: string
-): Promise<PointRiskAssessment> {
-  let url = `/api/risk/assess?lat=${lat}&lon=${lon}`;
-  if (name) url += `&name=${encodeURIComponent(name)}`;
-  return request<PointRiskAssessment>(url);
-}
-
-export async function searchLocations(
-  query: string,
-  limit: number = 5
-): Promise<LocationSearchResult[]> {
-  return request<LocationSearchResult[]>(
-    `/api/location/search?q=${encodeURIComponent(query)}&limit=${limit}`
-  );
-}
-
-export async function reverseGeocode(
-  lat: number,
-  lon: number
-): Promise<LocationSearchResult> {
-  return request<LocationSearchResult>(`/api/location/reverse?lat=${lat}&lon=${lon}`);
-}
-
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 

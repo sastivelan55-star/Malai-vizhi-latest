@@ -46,10 +46,7 @@ from flood_logic import (
     generate_flood_assessment,
     get_chennai_flood_stations,
     generate_chennai_flood_advisory,
-    build_dynamic_flood_station,
 )
-from weather_service import geocode_indian_location, fetch_weather_telemetry
-from risk_orchestrator import RiskOrchestrator, location_provider
 from seed_data import seed
 
 # ---------------------------------------------------------------------------
@@ -456,119 +453,6 @@ def get_flood_risk_data():
     })
 
 
-@app.route("/api/flood-risk/search", methods=["GET"])
-def search_flood_risk_location():
-    """
-    Search any city or location in India, geocode to coordinates, fetch public weather
-    telemetry without API keys, and evaluate prototype flood risk score.
-    """
-    query = request.args.get("query") or request.args.get("q") or ""
-    query = query.strip()
-    if not query:
-        return jsonify({"error": "Search query is required. Enter a city or location in India."}), 400
-
-    # 1. Geocode location
-    geo = geocode_indian_location(query)
-    if not geo:
-        return jsonify({
-            "error": f"Location '{query}' not found. Try another city or location (e.g. Coimbatore, Madurai, Bengaluru)."
-        }), 404
-
-    # 2. Fetch public weather telemetry
-    weather = fetch_weather_telemetry(geo["latitude"], geo["longitude"])
-    if not weather:
-        return jsonify({
-            "error": f"Weather data unavailable for '{geo['name']}'. Unable to calculate a location-specific prototype assessment without required input data."
-        }), 502
-
-    # 3. Calculate deterministic prototype flood risk
-    station = build_dynamic_flood_station(geo, weather)
-
-    return jsonify({
-        "location": {
-            "name": geo["name"],
-            "state": geo["state"],
-            "country": geo["country"],
-            "latitude": geo["latitude"],
-            "longitude": geo["longitude"],
-            "elevation": geo.get("elevation", 15.0)
-        },
-        "assessment_type": "Prototype Flood Risk Assessment",
-        "risk_score": station["flood_risk_score"],
-        "risk_level": station["flood_risk_level"],
-        "inputs": {
-            "rainfall_24h": weather["rainfall_24h"],
-            "previous_rainfall": weather["previous_rainfall_7d"],
-            "soil_moisture": weather["soil_moisture"],
-            "soil_moisture_source": weather["soil_moisture_source"],
-            "runoff_index": station["runoff_index"]
-        },
-        "station": station,
-        "prototype_disclaimer": "Based on available weather and environmental inputs, the model estimates the current prototype flood-risk level. This is not an official government flood warning."
-    })
-
-
-@app.route("/api/flood-risk/location", methods=["GET"])
-def get_flood_risk_by_coordinates():
-    """
-    Evaluate prototype flood risk for specific coordinates in India.
-    Query parameters: lat, lon, name (optional), state (optional)
-    """
-    lat_str = request.args.get("lat")
-    lon_str = request.args.get("lon")
-    name = request.args.get("name") or "Selected Location"
-    state = request.args.get("state") or "India"
-
-    if not lat_str or not lon_str:
-        return jsonify({"error": "Latitude ('lat') and longitude ('lon') parameters are required."}), 400
-
-    try:
-        lat = float(lat_str)
-        lon = float(lon_str)
-    except ValueError:
-        return jsonify({"error": "Invalid coordinates. Latitude and longitude must be numbers."}), 400
-
-    loc_dict = {
-        "name": name,
-        "state": state,
-        "country": "India",
-        "latitude": round(lat, 4),
-        "longitude": round(lon, 4),
-        "elevation": 15.0
-    }
-
-    # Fetch live weather telemetry
-    weather = fetch_weather_telemetry(lat, lon)
-    if not weather:
-        return jsonify({
-            "error": f"Weather data unavailable for coordinates ({lat:.4f}, {lon:.4f}). Unable to calculate a location-specific prototype assessment without required input data."
-        }), 502
-
-    station = build_dynamic_flood_station(loc_dict, weather)
-
-    return jsonify({
-        "location": {
-            "name": loc_dict["name"],
-            "state": loc_dict["state"],
-            "country": loc_dict["country"],
-            "latitude": loc_dict["latitude"],
-            "longitude": loc_dict["longitude"]
-        },
-        "assessment_type": "Prototype Flood Risk Assessment",
-        "risk_score": station["flood_risk_score"],
-        "risk_level": station["flood_risk_level"],
-        "inputs": {
-            "rainfall_24h": weather["rainfall_24h"],
-            "previous_rainfall": weather["previous_rainfall_7d"],
-            "soil_moisture": weather["soil_moisture"],
-            "soil_moisture_source": weather["soil_moisture_source"],
-            "runoff_index": station["runoff_index"]
-        },
-        "station": station,
-        "prototype_disclaimer": "Based on available weather and environmental inputs, the model estimates the current prototype flood-risk level. This is not an official government flood warning."
-    })
-
-
 @app.route("/api/flood-risk/<location_id>", methods=["GET"])
 def get_single_flood_station(location_id):
     """
@@ -633,81 +517,7 @@ def get_single_flood_station(location_id):
     })
 
 
-# ---------------------------------------------------------------------------
-# Point-Level Multi-Hazard Risk Assessment & Location Services
-# ---------------------------------------------------------------------------
-
-@app.route("/api/risk/assess", methods=["GET"])
-def assess_point_risk():
-    """
-    Production-grade point-level multi-hazard risk assessment (Flood + Landslide)
-    for any coordinate (village, school, locality, hill, town) across India.
-    Query parameters: lat, lon, name (optional)
-    """
-    lat_str = request.args.get("lat")
-    lon_str = request.args.get("lon")
-    name = request.args.get("name")
-
-    if not lat_str or not lon_str:
-        return jsonify({"error": "Query parameters 'lat' and 'lon' are required."}), 400
-
-    try:
-        lat = float(lat_str)
-        lon = float(lon_str)
-    except ValueError:
-        return jsonify({"error": "Invalid coordinates. 'lat' and 'lon' must be numeric."}), 400
-
-    res = RiskOrchestrator.assess_point(lat, lon, name)
-    status_code = res.pop("status", 200)
-    return jsonify(res), status_code
-
-
-@app.route("/api/location/search", methods=["GET"])
-def search_locations():
-    """
-    Search any location in India: schools, villages, localities, landmarks, towns, cities.
-    Query parameters: q (or query), limit (default: 5)
-    """
-    q = request.args.get("q") or request.args.get("query") or ""
-    q = q.strip()
-    if not q:
-        return jsonify([]), 200
-
-    limit = 5
-    try:
-        limit = max(1, min(10, int(request.args.get("limit", 5))))
-    except ValueError:
-        limit = 5
-
-    results = location_provider.search(q, limit=limit)
-    return jsonify(results)
-
-
-@app.route("/api/location/reverse", methods=["GET"])
-def reverse_geocode_location():
-    """
-    Reverse geocode latitude & longitude to human-readable place name.
-    Query parameters: lat, lon
-    """
-    lat_str = request.args.get("lat")
-    lon_str = request.args.get("lon")
-    if not lat_str or not lon_str:
-        return jsonify({"error": "Parameters 'lat' and 'lon' are required."}), 400
-
-    try:
-        lat = float(lat_str)
-        lon = float(lon_str)
-    except ValueError:
-        return jsonify({"error": "Invalid coordinates. 'lat' and 'lon' must be numbers."}), 400
-
-    res = location_provider.reverse_geocode(lat, lon)
-    if not res:
-        return jsonify({"error": "Unable to reverse geocode coordinates."}), 404
-    return jsonify(res)
-
-
 @app.route("/api/alerts", methods=["GET"])
-
 def get_alerts():
     """Return JSON list of all alerts, most recent first."""
     conn = get_connection()

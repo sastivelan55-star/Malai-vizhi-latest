@@ -120,6 +120,28 @@ def init_db():
         )
     """)
 
+    # ---------- assessments (Audit & Historical Point-Level Risk Logs) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS assessments (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            latitude         REAL    NOT NULL,
+            longitude        REAL    NOT NULL,
+            location_name    TEXT,
+            flood_score      INTEGER,
+            flood_level      TEXT,
+            landslide_score  INTEGER,
+            landslide_level  TEXT,
+            data_quality     TEXT    NOT NULL DEFAULT 'PARTIAL',
+            rainfall_24h     REAL,
+            soil_moisture    REAL,
+            elevation        REAL,
+            slope            REAL,
+            model_versions   TEXT,
+            data_sources     TEXT,
+            timestamp        TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("[models] ✅ Database tables initialised and migrated.")

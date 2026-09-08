@@ -138,7 +138,6 @@ export interface FloodStation {
   rainfall_mm: number;
   rainfall_24h?: number;
   soil_moisture: number;
-  soil_moisture_source?: string;
   slope_deg?: number;
   flood_risk_score: number;
   risk_score?: number;
@@ -150,34 +149,8 @@ export interface FloodStation {
   last_updated: string;
   data_source?: string;
   is_prototype?: boolean;
-  is_dynamic?: boolean;
   assessment_type?: string;
   basin?: string;
-  elevation?: number;
-  prototype_disclaimer?: string;
-}
-
-export interface DynamicFloodRiskResult {
-  location: {
-    name: string;
-    state: string;
-    country: string;
-    latitude: number;
-    longitude: number;
-    elevation?: number;
-  };
-  assessment_type: string;
-  risk_score: number;
-  risk_level: 'LOW' | 'MODERATE' | 'HIGH';
-  inputs: {
-    rainfall_24h: number;
-    previous_rainfall: number;
-    soil_moisture: number | null;
-    soil_moisture_source?: string;
-    runoff_index: number;
-  };
-  station: FloodStation;
-  prototype_disclaimer: string;
 }
 
 export interface FloodAdvisory {
@@ -208,78 +181,4 @@ export interface FloodRiskResponse {
   prototype_disclaimer: string;
   future_integrations: string[];
 }
-
-// ─── Point-Level Production Multi-Hazard Risk Types ──────────────────────────
-
-export interface TelemetryValue {
-  value: number | null;
-  unit?: string;
-  source?: string;
-  timestamp?: string;
-  quality?: string;
-  direction?: string;
-}
-
-export interface EnvironmentalTelemetry {
-  rainfall_1h: TelemetryValue;
-  rainfall_3h?: TelemetryValue;
-  rainfall_6h?: TelemetryValue;
-  rainfall_24h: TelemetryValue;
-  rainfall_72h: TelemetryValue;
-  antecedent_rainfall: TelemetryValue;
-  seven_day_trend: number[];
-  soil_moisture: TelemetryValue;
-  elevation: TelemetryValue;
-  slope: TelemetryValue;
-  aspect: TelemetryValue;
-  runoff_index?: number | null;
-}
-
-export interface HazardAssessment {
-  score: number | null;
-  level: 'LOW' | 'MODERATE' | 'HIGH' | 'UNAVAILABLE';
-  confidence: 'HIGH' | 'MODERATE' | 'LOW';
-  confidence_pct?: number;
-  data_quality: 'GOOD' | 'PARTIAL' | 'INSUFFICIENT';
-  factors: string[];
-  model_version: string;
-  assessment: string;
-  terrain_available?: boolean;
-  status: string;
-}
-
-export interface PointRiskAssessment {
-  location: {
-    name: string;
-    display_name: string;
-    state: string;
-    country: string;
-    latitude: number;
-    longitude: number;
-  };
-  flood: HazardAssessment;
-  landslide: HazardAssessment;
-  environment: EnvironmentalTelemetry;
-  metadata: {
-    generated_at: string;
-    model_versions: {
-      flood: string;
-      landslide: string;
-    };
-    data_sources: Record<string, string>;
-    disclaimer: string;
-  };
-}
-
-export interface LocationSearchResult {
-  name: string;
-  display_name: string;
-  latitude: number;
-  longitude: number;
-  type?: string;
-  state?: string;
-  country?: string;
-  source?: string;
-}
-
 
