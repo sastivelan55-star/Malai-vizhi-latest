@@ -55,8 +55,6 @@ from services.exposure_service import exposure_service
 from services.impact_service import impact_service
 from services.routing_service import routing_service
 import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'seed'))
-# pyrefly: ignore [missing-import]
 from seed_data import seed
 
 # ---------------------------------------------------------------------------
