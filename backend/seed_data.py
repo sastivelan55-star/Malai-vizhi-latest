@@ -51,21 +51,47 @@ LOCATIONS = [
 ]
 
 
+def seed_gis_data(conn):
+    """Seed villages and critical infrastructure with explicitly labeled DEMO data."""
+    cursor = conn.cursor()
+    v_count = cursor.execute("SELECT COUNT(*) FROM villages").fetchone()[0]
+    if v_count == 0:
+        # Creating a synthetic village near Shillong
+        villages = [
+            ("Mawlynnong", 25.201, 91.916, 500, "HIGH", "[DEMO] GIS Dataset"),
+            ("Nongriat", 25.234, 91.666, 300, "CRITICAL", "[DEMO] GIS Dataset"),
+            ("Pynursla", 25.305, 91.897, 1200, "MODERATE", "[DEMO] GIS Dataset")
+        ]
+        cursor.executemany("INSERT INTO villages (name, latitude, longitude, population, risk_exposure, data_source) VALUES (?, ?, ?, ?, ?, ?)", villages)
+        
+        infra = [
+            ("Shillong Civil Hospital", "HOSPITAL", 25.5788, 91.8933, "ACTIVE", "[DEMO] Facilities GIS"),
+            ("Umiam Hydro Power Station", "POWER", 25.655, 91.905, "AT_RISK", "[DEMO] Facilities GIS"),
+            ("NH-40 Bridge", "TRANSPORT", 25.602, 91.891, "ACTIVE", "[DEMO] Facilities GIS")
+        ]
+        cursor.executemany("INSERT INTO critical_infrastructure (name, type, latitude, longitude, status, data_source) VALUES (?, ?, ?, ?, ?, ?)", infra)
+        
+        conn.commit()
+        print("[seed_data] 🗺️  Seeded DEMO GIS layers (villages & infrastructure).")
+
 def seed():
     """Insert or update all 12 locations in the database."""
     init_db()
 
     conn = get_connection()
     cursor = conn.cursor()
+    
+    seed_gis_data(conn)
 
     existing = cursor.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
     if existing > 0:
         print(f"[seed_data] ℹ️ Database already has {existing} location(s). Updating missing attributes if needed.")
-        # Ensure any locations with 0 risk_score get recalculated
-        rows = cursor.execute("SELECT id, rainfall_mm, soil_moisture, slope_deg FROM locations").fetchall()
+        # Ensure any locations with 0 risk_score get recalculated, and node_ids get set
+        rows = cursor.execute("SELECT id, rainfall_mm, soil_moisture, slope_deg, node_id FROM locations").fetchall()
         for r in rows:
             score = calculate_risk_score(r["rainfall_mm"], r["soil_moisture"], r["slope_deg"])
-            cursor.execute("UPDATE locations SET risk_score = ? WHERE id = ?", (score, r["id"]))
+            nid = r["node_id"] or f"NODE_{r['id']:03d}"
+            cursor.execute("UPDATE locations SET risk_score = ?, node_id = ? WHERE id = ?", (score, nid, r["id"]))
         seed_users(conn)
         conn.commit()
         conn.close()
@@ -73,22 +99,25 @@ def seed():
 
     print("[seed_data] 🌱 Seeding 12 NER locations …")
 
-    for loc in LOCATIONS:
+    for idx, loc in enumerate(LOCATIONS, start=1):
         rainfall_mm   = fetch_rainfall(loc["latitude"], loc["longitude"])
         soil_moisture = round(random.uniform(30, 88), 2)
         risk_level    = calculate_risk(rainfall_mm, soil_moisture)
         risk_score    = calculate_risk_score(rainfall_mm, soil_moisture, loc["slope_deg"])
         last_updated  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        node_id       = f"NODE_{idx:03d}"
 
         cursor.execute("""
             INSERT INTO locations (name, state, latitude, longitude,
-                                   rainfall_mm, soil_moisture, risk_level, slope_deg, risk_score, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   rainfall_mm, soil_moisture, risk_level, slope_deg, risk_score, last_updated,
+                                   node_id, inclination_deg, battery)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             loc["name"], loc["state"],
             loc["latitude"], loc["longitude"],
             rainfall_mm, soil_moisture,
             risk_level, loc["slope_deg"], risk_score, last_updated,
+            node_id, 0.0, 100
         ))
 
         print(
@@ -107,11 +136,38 @@ def seed():
 
     # Seed 2 sample verified citizen reports for demonstration
     cursor.execute("""
-        INSERT INTO reports (location, description, latitude, longitude, category, photo_path, submitted_at)
+        INSERT INTO reports (location, description, latitude, longitude, category, photo_path, submitted_at, status, verified_at, resolved_at)
         VALUES 
-        ('Mawphlang Road, Meghalaya', 'Minor slope sliding with soil displacement observed after 3 hours of heavy downpour. Road partially obstructed.', 25.45, 91.75, 'Mudslide & Debris', NULL, datetime('now', '-3 hours')),
-        ('NH-29 Kohima Bypass, Nagaland', 'Tension fissures and visible rock movements on upper embankment near milestone 42.', 25.68, 94.12, 'Tension Cracks', NULL, datetime('now', '-6 hours'))
+        ('Mawphlang Road, Meghalaya', 'Minor slope sliding with soil displacement observed after 3 hours of heavy downpour. Road partially obstructed.', 25.45, 91.75, 'Mudslide & Debris', NULL, datetime('now', '-3 hours'), 'VERIFIED', datetime('now', '-2 hours'), NULL),
+        ('NH-29 Kohima Bypass, Nagaland', 'Tension fissures and visible rock movements on upper embankment near milestone 42.', 25.68, 94.12, 'Tension Cracks', NULL, datetime('now', '-6 hours'), 'RESOLVED', datetime('now', '-5 hours'), datetime('now', '-1 hours'))
     """)
+
+    # Seed historical landslide events (Phase 7 Context)
+    hist_count = cursor.execute("SELECT COUNT(*) FROM historical_events").fetchone()[0]
+    if hist_count == 0:
+        historical = [
+            ("Cherrapunji East", 25.28, 91.73, "2024-06-12", "MAJOR", "GSI Landslide Inventory", "Major monsoon-triggered landslide blocking main transit route.", "VERIFIED"),
+            ("Aizawl North", 23.74, 92.71, "2023-08-04", "MODERATE", "State Disaster Management Authority", "Slope failure near residential sector following sustained rainfall.", "VERIFIED"),
+            ("Tawang Corridor", 27.59, 91.86, "2025-02-15", "CRITICAL", "National Remote Sensing Centre (NRSC)", "Massive rockfall triggered by seismic activity and freeze-thaw weathering.", "VERIFIED"),
+        ]
+        cursor.executemany("""
+            INSERT INTO historical_events (location, latitude, longitude, date, severity, source, description, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, historical)
+
+    # Seed road connectivity data (Phase 6)
+    road_count = cursor.execute("SELECT COUNT(*) FROM road_status").fetchone()[0]
+    if road_count == 0:
+        roads = [
+            ("NH-29 Dimapur-Kohima", 25.75, 93.9, "BLOCKED", 85, "HIGH", "State PWD / Satellite Radar"),
+            ("NH-44 Shillong-Silchar", 25.5, 91.9, "RESTRICTED", 65, "MODERATE", "Citizen Report / Ground Sensors"),
+            ("SH-5 Aizawl Bypass", 23.7, 92.7, "OPEN", 20, "LOW", "State Traffic Police"),
+            ("Tawang Mountain Pass", 27.5, 92.0, "UNKNOWN", 45, "MODERATE", "DEMO"),
+        ]
+        cursor.executemany("""
+            INSERT INTO road_status (road_name, latitude, longitude, status, risk_score, impact_priority, data_source)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, roads)
 
     seed_users(conn)
     conn.commit()

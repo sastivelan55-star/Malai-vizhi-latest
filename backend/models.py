@@ -45,6 +45,12 @@ def init_db():
         cursor.execute("ALTER TABLE locations ADD COLUMN slope_deg REAL NOT NULL DEFAULT 32.5")
     if "risk_score" not in columns:
         cursor.execute("ALTER TABLE locations ADD COLUMN risk_score INTEGER NOT NULL DEFAULT 25")
+    if "node_id" not in columns:
+        cursor.execute("ALTER TABLE locations ADD COLUMN node_id TEXT")
+    if "inclination_deg" not in columns:
+        cursor.execute("ALTER TABLE locations ADD COLUMN inclination_deg REAL NOT NULL DEFAULT 0.0")
+    if "battery" not in columns:
+        cursor.execute("ALTER TABLE locations ADD COLUMN battery INTEGER NOT NULL DEFAULT 100")
 
     # ---------- alerts ----------
     cursor.execute("""
@@ -58,6 +64,21 @@ def init_db():
             FOREIGN KEY (location_id) REFERENCES locations(id)
         )
     """)
+
+    cursor.execute("PRAGMA table_info(alerts)")
+    a_columns = [row["name"] for row in cursor.fetchall()]
+    if "trigger_type" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN trigger_type TEXT DEFAULT 'RISK_ESCALATION'")
+    if "risk_score" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN risk_score INTEGER")
+    if "latitude" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN latitude REAL")
+    if "longitude" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN longitude REAL")
+    if "acknowledged_at" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN acknowledged_at TEXT")
+    if "recipient_type" not in a_columns:
+        cursor.execute("ALTER TABLE alerts ADD COLUMN recipient_type TEXT DEFAULT 'ALL'")
 
     # ---------- reports ----------
     cursor.execute("""
@@ -82,6 +103,14 @@ def init_db():
         cursor.execute("ALTER TABLE reports ADD COLUMN latitude REAL")
     if "longitude" not in r_columns:
         cursor.execute("ALTER TABLE reports ADD COLUMN longitude REAL")
+    if "status" not in r_columns:
+        cursor.execute("ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'SUBMITTED'")
+    if "verified_at" not in r_columns:
+        cursor.execute("ALTER TABLE reports ADD COLUMN verified_at TEXT")
+    if "resolved_at" not in r_columns:
+        cursor.execute("ALTER TABLE reports ADD COLUMN resolved_at TEXT")
+    if "video_path" not in r_columns:
+        cursor.execute("ALTER TABLE reports ADD COLUMN video_path TEXT")
 
     # ---------- users ----------
     cursor.execute("""
@@ -174,6 +203,62 @@ def init_db():
             model_version TEXT    NOT NULL,
             data_quality  TEXT    NOT NULL DEFAULT 'LIMITED',
             created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+
+    # ---------- historical_events (Phase 7 Contextual Data) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS historical_events (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            location    TEXT    NOT NULL,
+            latitude    REAL    NOT NULL,
+            longitude   REAL    NOT NULL,
+            date        TEXT    NOT NULL,
+            severity    TEXT    NOT NULL,
+            source      TEXT    NOT NULL,
+            description TEXT,
+            status      TEXT    NOT NULL DEFAULT 'VERIFIED'
+        )
+    """)
+
+    # ---------- road_status (Phase 6 Route Risk Analysis & Connectivity) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS road_status (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            road_name        TEXT    NOT NULL,
+            latitude         REAL    NOT NULL,
+            longitude        REAL    NOT NULL,
+            status           TEXT    NOT NULL DEFAULT 'UNKNOWN',
+            risk_score       INTEGER NOT NULL DEFAULT 0,
+            impact_priority  TEXT    NOT NULL DEFAULT 'LOW',
+            last_updated     TEXT    NOT NULL DEFAULT (datetime('now')),
+            data_source      TEXT    NOT NULL DEFAULT 'DEMO'
+        )
+    """)
+
+    # ---------- villages (Phase 8 GIS Data) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS villages (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            name             TEXT    NOT NULL,
+            latitude         REAL    NOT NULL,
+            longitude        REAL    NOT NULL,
+            population       INTEGER NOT NULL,
+            risk_exposure    TEXT    NOT NULL DEFAULT 'UNKNOWN',
+            data_source      TEXT    NOT NULL DEFAULT 'DEMO'
+        )
+    """)
+
+    # ---------- critical_infrastructure (Phase 8 GIS Data) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS critical_infrastructure (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            name             TEXT    NOT NULL,
+            type             TEXT    NOT NULL,
+            latitude         REAL    NOT NULL,
+            longitude        REAL    NOT NULL,
+            status           TEXT    NOT NULL DEFAULT 'ACTIVE',
+            data_source      TEXT    NOT NULL DEFAULT 'DEMO'
         )
     """)
 

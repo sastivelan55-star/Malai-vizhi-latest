@@ -293,8 +293,34 @@ def get_route_risk(route_id):
     return jsonify(res), 200
 
 
+@app.route("/api/ml/predict", methods=["GET", "POST"])
+def ml_predict():
+    """
+    ML Landslide Prediction Endpoint (Requirement Gap 1).
+    Since no validated training dataset exists, this cleanly returns the ML service architecture 
+    with status NOT_CONFIGURED, preventing dangerous fabrication while fulfilling the API contract.
+    """
+    # Simulate extraction of features if provided
+    features_used = {
+        "rainfall_mm": request.args.get("rainfall_mm") or (request.json.get("rainfall_mm") if request.is_json else None),
+        "soil_moisture": request.args.get("soil_moisture") or (request.json.get("soil_moisture") if request.is_json else None),
+        "slope": request.args.get("slope") or (request.json.get("slope") if request.is_json else None)
+    }
+
+    return jsonify({
+        "status": "NOT_CONFIGURED",
+        "prediction": "UNAVAILABLE",
+        "confidence": 0.0,
+        "model": "RandomForestClassifier (Pending Training Data)",
+        "version": "0.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "features_used": features_used,
+        "message": "Scientific validation required. No defensible labeled dataset available for ML inference."
+    }), 200
+
+
 # ---------------------------------------------------------------------------
-# API Endpoints
+# Citizen Reporting API
 # ---------------------------------------------------------------------------
 
 @app.route("/api/health", methods=["GET"])
@@ -371,6 +397,30 @@ def get_risk_data():
 
     return jsonify(result)
 
+@app.route("/api/historical-events", methods=["GET"])
+def get_historical_events():
+    """Return JSON list of historical landslide events."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT * FROM historical_events ORDER BY date DESC").fetchall()
+        result = [_row_to_dict(r) for r in rows]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route("/api/roads", methods=["GET"])
+def get_roads():
+    """Return all road status data."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT * FROM road_status ORDER BY impact_priority DESC, risk_score DESC").fetchall()
+        return jsonify([_row_to_dict(r) for r in rows]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/api/risk-data/<int:location_id>", methods=["GET"])
@@ -407,6 +457,70 @@ def get_single_location(location_id):
     ]
 
     return jsonify(loc)
+
+
+# ---------------------------------------------------------------------------
+# Sensor Ingestion (Phase 4 Hardware Teams)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/sensors/data", methods=["POST"])
+def ingest_sensor_data():
+    """
+    Ingest data from hardware sensor nodes.
+    Payload: {"node_id": "...", "rainfall_mm": 12.5, "soil_moisture": 80.2, "inclination_deg": 1.2, "battery": 92}
+    """
+    data = request.json
+    if not data or "node_id" not in data:
+        return jsonify({"error": "Missing node_id"}), 400
+
+    node_id = data["node_id"]
+    rain = float(data.get("rainfall_mm", 0))
+    soil = float(data.get("soil_moisture", 0))
+    incl = float(data.get("inclination_deg", 0))
+    batt = int(data.get("battery", 100))
+
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM locations WHERE node_id = ?", (node_id,)).fetchone()
+        if not row:
+            return jsonify({"error": f"Node {node_id} not mapped to a location"}), 404
+
+        loc = dict(row)
+        # Recalculate risk with new sensor data
+        new_score = calculate_risk_score(rain, soil, loc["slope_deg"])
+        if incl > 2.0:
+            new_score = min(100, new_score + 15)
+        
+        new_level = classify_risk_score(new_score)
+
+        # Update location
+        conn.execute("""
+            UPDATE locations 
+            SET rainfall_mm = ?, soil_moisture = ?, inclination_deg = ?, battery = ?,
+                risk_score = ?, risk_level = ?, last_updated = datetime('now')
+            WHERE node_id = ?
+        """, (rain, soil, incl, batt, new_score, new_level, node_id))
+        conn.commit()
+
+        # Trigger alerts if risk is HIGH/CRITICAL and changed
+        if new_level in ["HIGH", "CRITICAL"] and loc["risk_level"] not in ["HIGH", "CRITICAL"]:
+            from services.notification_service import AlertEngine
+            alert = AlertEngine.create_alert(
+                location_id=loc["id"],
+                trigger_type="SENSOR_THRESH",
+                risk_score=new_score,
+                message=f"Hardware Sensor Alert: Critical values at {loc['name']} (Rain: {rain}mm, Soil: {soil}%, Inclination: {incl}°)",
+                latitude=loc["latitude"],
+                longitude=loc["longitude"]
+            )
+            AlertEngine.process_and_send(alert)
+
+        return jsonify({"success": True, "message": "Sensor data ingested", "new_risk_level": new_level}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1102,18 +1216,24 @@ def simulate_rain():
         WHERE id = ?
     """, (new_rainfall, new_moisture, new_risk, new_risk_score, last_updated, location_id))
 
+    from services.notification_service import AlertEngine
+    AlertEngine.evaluate_and_trigger(
+        location_id=location_id,
+        old_level=location["risk_level"],
+        new_level=new_risk,
+        score=new_risk_score,
+        lat=location["latitude"],
+        lon=location["longitude"],
+        trigger_type="SIMULATION_ESCALATION"
+    )
+    
+    # Check if alert was created by fetching latest alert
+    latest_alert = conn.execute("SELECT * FROM alerts WHERE location_id = ? ORDER BY id DESC LIMIT 1", (location_id,)).fetchone()
     alert_id = None
-    message  = ""
-    if new_risk == "HIGH":
-        message = (
-            f"High risk detected in {location_name}, {state_name} — "
-            f"rainfall {new_rainfall:.1f} mm, soil moisture {new_moisture:.1f}%"
-        )
-        cursor = conn.execute("""
-            INSERT INTO alerts (location_id, severity, message, timestamp, status)
-            VALUES (?, 'HIGH', ?, ?, 'Sent')
-        """, (location_id, message, last_updated))
-        alert_id = cursor.lastrowid
+    message = ""
+    if latest_alert and latest_alert["trigger_type"] == "SIMULATION_ESCALATION":
+        alert_id = latest_alert["id"]
+        message = latest_alert["message"]
 
     conn.commit()
     conn.close()
@@ -1140,6 +1260,8 @@ def simulate_rain():
     return jsonify(response)
 
 
+ALLOWED_VIDEO_EXTENSIONS = {"mp4", "webm", "mov"}
+
 @app.route("/api/submit-report", methods=["POST"])
 def submit_report():
     """
@@ -1155,6 +1277,8 @@ def submit_report():
         return jsonify({"error": "Both 'location' and 'description' are required."}), 400
 
     photo_path = None
+    video_path = None
+    
     if "photo" in request.files:
         photo = request.files["photo"]
         if photo.filename and _allowed_file(photo.filename):
@@ -1166,15 +1290,26 @@ def submit_report():
         elif photo.filename:
             return jsonify({"error": "Unsupported file type. Allowed: PNG, JPG, JPEG, GIF, WEBP."}), 400
 
+    if "video" in request.files:
+        video = request.files["video"]
+        if video.filename and "." in video.filename and video.filename.rsplit(".", 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS:
+            ext        = video.filename.rsplit(".", 1)[1].lower()
+            filename   = f"{uuid.uuid4().hex}_video.{ext}"
+            save_path  = os.path.join(UPLOAD_DIR, filename)
+            video.save(save_path)
+            video_path = f"uploads/{filename}"
+        elif video.filename:
+            return jsonify({"error": "Unsupported video type. Allowed: MP4, WEBM, MOV."}), 400
+
     lat_val = float(latitude) if latitude else None
     lon_val = float(longitude) if longitude else None
     submitted_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_connection()
     cursor = conn.execute("""
-        INSERT INTO reports (location, description, latitude, longitude, category, photo_path, submitted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (location, description, lat_val, lon_val, category, photo_path, submitted_at))
+        INSERT INTO reports (location, description, latitude, longitude, category, photo_path, video_path, submitted_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (location, description, lat_val, lon_val, category, photo_path, video_path, submitted_at))
     report_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -1199,6 +1334,37 @@ def get_reports():
     rows = conn.execute("SELECT * FROM reports ORDER BY submitted_at DESC").fetchall()
     conn.close()
     return jsonify([_row_to_dict(r) for r in rows])
+
+
+@app.route("/api/reports/<int:report_id>", methods=["PATCH"])
+def update_report_status(report_id):
+    data = request.json
+    if not data or "status" not in data:
+        return jsonify({"error": "Missing status"}), 400
+
+    new_status = data["status"]
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        if not row:
+            return jsonify({"error": "Report not found"}), 404
+
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        if new_status == "VERIFIED":
+            conn.execute("UPDATE reports SET status = ?, verified_at = ? WHERE id = ?", (new_status, now, report_id))
+        elif new_status == "RESOLVED":
+            conn.execute("UPDATE reports SET status = ?, resolved_at = ? WHERE id = ?", (new_status, now, report_id))
+        else:
+            conn.execute("UPDATE reports SET status = ? WHERE id = ?", (new_status, report_id))
+        
+        conn.commit()
+        
+        updated = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
+        return jsonify({"success": True, "report": _row_to_dict(updated)}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/api/analytics", methods=["GET"])
@@ -1456,6 +1622,59 @@ def auth_reset_password():
         "message": "Password successfully updated! You can now log in with your new password."
     }), 200
 
+
+@app.route("/api/sensors/<int:location_id>/history", methods=["GET"])
+def get_sensor_history(location_id):
+    """
+    Returns historical trend data for a sensor (Requirement Gap 4).
+    As physical hardware isn't connected, this generates safe DEMO data explicitly labeled.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM locations WHERE id = ?", (location_id,))
+        loc = cursor.fetchone()
+        if not loc:
+            return jsonify({"error": "Location not found"}), 404
+        
+        # Generate synthetic history strictly labeled as DEMO
+        history = []
+        base_inc = loc["inclination_deg"]
+        base_rain = loc["rainfall_mm"]
+        for i in range(12, 0, -1):
+            history.append({
+                "timestamp": (datetime.utcnow() - timedelta(hours=i)).isoformat(),
+                "inclination_deg": max(0, base_inc + random.uniform(-2, 2)),
+                "rainfall_mm": max(0, base_rain + random.uniform(-10, 10)),
+                "battery": min(100, loc["battery"] + i),
+                "is_demo_data": True
+            })
+            
+        return jsonify({
+            "location_id": location_id,
+            "node_id": loc["node_id"],
+            "health": "ONLINE" if (datetime.utcnow() - datetime.fromisoformat(loc["last_updated"].replace(" ", "T"))).total_seconds() < 86400 else "STALE",
+            "history": history
+        }), 200
+    finally:
+        conn.close()
+
+@app.route("/api/gis/layers", methods=["GET"])
+def get_gis_layers():
+    """
+    Returns villages and infrastructure GIS data (Requirement Gap 5).
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        villages = [dict(r) for r in cursor.execute("SELECT * FROM villages").fetchall()]
+        infra = [dict(r) for r in cursor.execute("SELECT * FROM critical_infrastructure").fetchall()]
+        return jsonify({
+            "villages": villages,
+            "infrastructure": infra
+        }), 200
+    finally:
+        conn.close()
 
 # ---------------------------------------------------------------------------
 # DB + seed (run on every startup — idempotent)

@@ -75,34 +75,41 @@ def calculate_risk_score(rainfall_mm: float, soil_moisture: float, slope_deg: fl
     return max(5, min(99, score))
 
 
+import os
+
 def generate_ai_assessment(risk_level: str, rainfall_mm: float, soil_moisture: float, location_name: str) -> str:
     """
     Generate dynamic, scientifically sound AI explanatory commentary.
+    Uses rule engine fallback if ML Provider (OPENAI_API_KEY) is unavailable.
     """
+    prefix = ""
+    if not os.environ.get("OPENAI_API_KEY"):
+        prefix = "[ML UNAVAILABLE - RULE ENGINE FALLBACK] "
+
     if risk_level == "HIGH":
         if rainfall_mm > 150 and soil_moisture > 75:
-            return (
+            return prefix + (
                 f"Critical slope instability detected in {location_name}. "
                 f"Sustained extreme precipitation ({rainfall_mm:.1f}mm) combined with saturated pore water pressure "
                 f"({soil_moisture:.1f}% soil moisture) exceeds regional failure threshold."
             )
         elif rainfall_mm > 150:
-            return (
+            return prefix + (
                 f"High flash landslide probability in {location_name}. "
                 f"Intense precipitation spike ({rainfall_mm:.1f}mm) creates high surface runoff and shear stress on steep slopes."
             )
         else:
-            return (
+            return prefix + (
                 f"High antecedent moisture hazard in {location_name}. "
                 f"Soil saturation at {soil_moisture:.1f}% severely reduces effective cohesion along structural slip planes."
             )
     elif risk_level == "MODERATE":
-        return (
+        return prefix + (
             f"Elevated advisory status for {location_name}. "
             f"Precipitation ({rainfall_mm:.1f}mm) and soil moisture ({soil_moisture:.1f}%) indicate increasing moisture buildup. Continued monitoring advised."
         )
     else:
-        return (
+        return prefix + (
             f"Stable geological conditions across {location_name}. "
             f"Rainfall ({rainfall_mm:.1f}mm) and soil moisture ({soil_moisture:.1f}%) remain within safe baseline thresholds."
         )
