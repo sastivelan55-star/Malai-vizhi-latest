@@ -14,6 +14,12 @@ import type {
   DynamicFloodRiskResult,
   PointRiskAssessment,
   LocationSearchResult,
+  RiskHistoryResponse,
+  SimulationRequest,
+  SimulationResponseData,
+  RiskReplayResponse,
+  RiskTrendStatisticalResponse,
+  AuthorityOverview,
 } from '../types';
 
 // Configurable API base URL: respects VITE_API_BASE_URL / VITE_API_URL / VITE_API_BASE.
@@ -27,7 +33,7 @@ export function resolveApiBase(): string {
   const isCapacitor = typeof window !== 'undefined' && typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined';
   if (isCapacitor) {
     const envUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '').trim();
-    return (envUrl || 'https://malai-vizhi.onrender.com').replace(/\/+$/, '');
+    return (envUrl || 'https://backend-malaivizhi2-0.onrender.com').replace(/\/+$/, '');
   }
 
   // 2. Browser runtime: if served from same origin (localhost, 127.0.0.1, or malai-vizhi.onrender.com),
@@ -37,16 +43,18 @@ export function resolveApiBase(): string {
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
-      hostname === '[::1]' ||
-      hostname === 'malai-vizhi.onrender.com'
+      hostname === '[::1]'
     ) {
+      return 'https://backend-malaivizhi2-0.onrender.com';
+    }
+    if (hostname === 'malai-vizhi.onrender.com') {
       return '';
     }
   }
 
   // 3. Separate static deployment or fallback
   const raw = ((import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE) as string | undefined)?.trim();
-  return (raw || 'https://malai-vizhi.onrender.com').replace(/\/+$/, '');
+  return (raw || 'https://backend-malaivizhi2-0.onrender.com').replace(/\/+$/, '');
 }
 
 export const API_BASE = resolveApiBase();
@@ -218,8 +226,6 @@ export async function getDynamicFloodRisk(
   return request<DynamicFloodRiskResult>(url);
 }
 
-// ─── Production Point-Level Multi-Hazard Risk Assessment ──────────────────────
-
 export async function assessPointRisk(
   lat: number,
   lon: number,
@@ -228,6 +234,57 @@ export async function assessPointRisk(
   let url = `/api/risk/assess?lat=${lat}&lon=${lon}`;
   if (name) url += `&name=${encodeURIComponent(name)}`;
   return request<PointRiskAssessment>(url);
+}
+
+export async function getRiskHistory(
+  lat: number,
+  lon: number,
+  hazardType: string = 'landslide',
+  hours: number = 24
+): Promise<RiskHistoryResponse> {
+  const url = `/api/risk/history?lat=${lat}&lon=${lon}&hazard_type=${hazardType}&hours=${hours}`;
+  return request<RiskHistoryResponse>(url);
+}
+
+export async function simulateRiskScenario(
+  lat: number,
+  lon: number,
+  rainfallMultiplier: number = 1.0,
+  rainfallOverride?: number
+): Promise<PointRiskAssessment> {
+  let url = `/api/risk/simulate-scenario?lat=${lat}&lon=${lon}&rainfall_multiplier=${rainfallMultiplier}`;
+  if (rainfallOverride !== undefined) {
+    url += `&rainfall_override=${rainfallOverride}`;
+  }
+  return request<PointRiskAssessment>(url);
+}
+
+export async function simulateScenario(
+  req: SimulationRequest
+): Promise<SimulationResponseData> {
+  return request<SimulationResponseData>('/api/risk/simulate', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  });
+}
+
+export async function getRiskReplay(
+  lat: number,
+  lon: number,
+  hours: number = 48
+): Promise<RiskReplayResponse> {
+  return request<RiskReplayResponse>(`/api/risk/replay?lat=${lat}&lon=${lon}&hours=${hours}`);
+}
+
+export async function getRiskTrend(
+  lat: number,
+  lon: number
+): Promise<RiskTrendStatisticalResponse> {
+  return request<RiskTrendStatisticalResponse>(`/api/risk/trend?lat=${lat}&lon=${lon}`);
+}
+
+export async function getAuthorityOverview(): Promise<AuthorityOverview> {
+  return request<AuthorityOverview>('/api/authority/overview');
 }
 
 export async function searchLocations(
