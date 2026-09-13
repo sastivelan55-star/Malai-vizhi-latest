@@ -18,11 +18,11 @@ services:
       - key: ALLOWED_ORIGINS
         value: "*"
 
-  # ---------------------------------------------------------------------------
-  # 2. React + Vite Frontend Static Site
-  # ---------------------------------------------------------------------------
-  - type: static
-    name: malai-vizhi-frontend
+# ---------------------------------------------------------------------------
+# 2. React + Vite Frontend Static Site
+# ---------------------------------------------------------------------------
+staticSites:
+  - name: malai-vizhi-frontend
     region: singapore
     plan: free
     rootDir: frontend-react
