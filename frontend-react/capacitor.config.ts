@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: true,
-    backgroundColor: '#071A2B',
+    backgroundColor: 'hsla(208, 91%, 33%, 1.00)',
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined,

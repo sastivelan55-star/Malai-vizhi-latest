@@ -25,6 +25,7 @@ import {
   getStoredToken,
   getStoredUser,
 } from '../services/api';
+import { AuthorityOverviewPanel } from '../components/Risk/AuthorityOverviewPanel';
 import type { AuthUser } from '../types';
 
 type Mode = 'login' | 'forgot_request' | 'forgot_reset';
@@ -219,9 +220,9 @@ export const AdminLogin: React.FC = () => {
         </span>
       </header>
 
-      {/* Main Login Card */}
+      {/* Main Login Card / Command Center */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 py-8">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200/80 shadow-xl p-5 sm:p-8 space-y-6">
+        <div className={`w-full ${currentUser ? 'max-w-5xl' : 'max-w-md'} bg-white rounded-2xl border border-slate-200/80 shadow-xl p-5 sm:p-8 space-y-6 transition-all duration-300`}>
           
           {/* Brand & Badge Header */}
           <div className="text-center space-y-2">
@@ -233,7 +234,7 @@ export const AdminLogin: React.FC = () => {
                 MALAI VIZHI
               </h1>
               <p className="text-xs font-bold tracking-widest uppercase text-[#0F766E]">
-                {currentUser ? 'SESSION ACTIVE' : mode === 'login' ? 'AUTHORIZED ACCESS' : 'PASSWORD RECOVERY'}
+                {currentUser ? 'AUTHORITY COMMAND CENTER' : mode === 'login' ? 'AUTHORIZED ACCESS' : 'PASSWORD RECOVERY'}
               </p>
             </div>
           </div>
@@ -261,44 +262,45 @@ export const AdminLogin: React.FC = () => {
 
           {/* ────────────────── STATE 1: ALREADY AUTHENTICATED ────────────────── */}
           {currentUser ? (
-            <div className="space-y-5">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Logged in as
-                  </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#14B8A6]/15 text-[#0F766E] uppercase tracking-wide">
-                    {currentUser.role}
-                  </span>
-                </div>
+            <div className="space-y-6">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-[#071A2B]">{currentUser.name}</p>
-                  <p className="text-xs text-slate-500 font-mono">User ID: {currentUser.user_id}</p>
-                  {currentUser.email && (
-                    <p className="text-xs text-slate-400">{currentUser.email}</p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-[#071A2B]">{currentUser.name}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#14B8A6]/15 text-[#0F766E] uppercase tracking-wide">
+                      {currentUser.role}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono">Operator ID: {currentUser.user_id}</p>
+                </div>
+
+                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/dashboard')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#071A2B] hover:bg-[#0B3948] active:bg-[#040f1a] text-white text-xs font-bold tracking-widest uppercase transition-all shadow-md min-h-[40px]"
+                  >
+                    LIVE MAP DASHBOARD
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 active:bg-red-100 text-xs font-bold tracking-wider uppercase transition-all disabled:opacity-50 min-h-[40px]"
+                  >
+                    {loading ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+                    LOGOUT
+                  </button>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => navigate('/dashboard')}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#071A2B] hover:bg-[#0B3948] active:bg-[#040f1a] text-white text-xs font-bold tracking-widest uppercase transition-all shadow-md min-h-[44px]"
-                >
-                  DASHBOARD
-                  <ArrowRight size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 active:bg-red-100 text-xs font-bold tracking-wider uppercase transition-all disabled:opacity-50 min-h-[44px]"
-                >
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
-                  LOGOUT
-                </button>
-              </div>
+              {/* Authority Operational Command Center */}
+              <AuthorityOverviewPanel
+                onSelectLocation={(lat, lon) => {
+                  navigate(`/dashboard?lat=${lat}&lon=${lon}`);
+                }}
+              />
             </div>
           ) : mode === 'login' ? (
             /* ────────────────── STATE 2: LOGIN FORM ────────────────── */

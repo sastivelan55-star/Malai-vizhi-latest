@@ -113,7 +113,15 @@ const InteractiveRiskMap: React.FC<InteractiveRiskMapProps> = memo(
 
       mapRef.current = map;
 
+      const resizeObserver = new ResizeObserver(() => {
+        if (mapRef.current) {
+          mapRef.current.invalidateSize();
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+
       return () => {
+        resizeObserver.disconnect();
         map.remove();
         mapRef.current = null;
       };
@@ -712,9 +720,10 @@ export const FloodRisk: React.FC = () => {
 
                     {pointAssessment.flood.factors && pointAssessment.flood.factors.length > 0 && (
                       <ul className="text-[10px] text-slate-600 space-y-1 list-disc list-inside pt-1">
-                        {pointAssessment.flood.factors.slice(0, 2).map((f, i) => (
-                          <li key={i} className="truncate" title={f}>{f}</li>
-                        ))}
+                        {pointAssessment.flood.factors.slice(0, 2).map((f, i) => {
+                          const text = typeof f === 'string' ? f : (f.description || f.name);
+                          return <li key={i} className="truncate" title={text}>{text}</li>;
+                        })}
                       </ul>
                     )}
                   </div>
@@ -754,9 +763,10 @@ export const FloodRisk: React.FC = () => {
 
                     {pointAssessment.landslide.factors && pointAssessment.landslide.factors.length > 0 && (
                       <ul className="text-[10px] text-slate-600 space-y-1 list-disc list-inside pt-1">
-                        {pointAssessment.landslide.factors.slice(0, 2).map((f, i) => (
-                          <li key={i} className="truncate" title={f}>{f}</li>
-                        ))}
+                        {pointAssessment.landslide.factors.slice(0, 2).map((f, i) => {
+                          const text = typeof f === 'string' ? f : (f.description || f.name);
+                          return <li key={i} className="truncate" title={text}>{text}</li>;
+                        })}
                       </ul>
                     )}
                   </div>

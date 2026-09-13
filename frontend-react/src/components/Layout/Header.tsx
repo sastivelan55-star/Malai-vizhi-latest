@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Menu, X, Bell, LayoutDashboard, AlertTriangle, FileText, Waves, BarChart2, HelpCircle, ShieldCheck, LogOut, User } from 'lucide-react';
+import { Menu, X, Bell, LayoutDashboard, AlertTriangle, FileText, Waves, BarChart2, HelpCircle, ShieldCheck, LogOut, User, CloudOff } from 'lucide-react';
 import { Logo } from '../UI/Logo';
 import { StatusBadge } from '../UI/StatusBadge';
 import { InstallPWA } from '../UI/InstallPWA';
@@ -76,6 +76,25 @@ export const Header: React.FC = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Selector */}
+          <div className="hidden sm:flex items-center bg-white/5 border border-white/10 rounded-lg px-2 py-1">
+            <select
+              className="bg-transparent text-white/80 text-xs font-semibold focus:outline-none cursor-pointer appearance-none px-1"
+              defaultValue="en"
+              aria-label="Select Language"
+            >
+              <option value="en" className="text-black">EN</option>
+              <option value="ta" className="text-black">TA</option>
+              <option value="hi" className="text-black">HI</option>
+            </select>
+          </div>
+
+          {/* Offline Sync Status */}
+          <div className="hidden sm:flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white/80 font-semibold">
+            {online ? <span className="w-2 h-2 rounded-full bg-emerald-500"></span> : <CloudOff size={13} className="text-amber-500" />}
+            {online ? "Synced" : "Offline / Queued"}
+          </div>
+
           {/* System status - desktop */}
           <div className="hidden sm:block">
             <StatusBadge online={online} lastUpdated={lastInf} />

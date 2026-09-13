@@ -54,7 +54,15 @@ export const ReportPickerMap: React.FC<ReportPickerMapProps> = memo(({ value, on
 
     mapRef.current = map;
 
+    const resizeObserver = new ResizeObserver(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
       markerRef.current = null;

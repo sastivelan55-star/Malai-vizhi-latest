@@ -46,7 +46,7 @@
 - **Build Command**: `npm install && npm run build`
 - **Publish Directory**: `dist`
 - **Environment Variable**:
-  - `VITE_API_URL`: `https://malai-vizhi.onrender.com`
+  - `VITE_API_URL`: `https://backend-malaivizhi2-0.onrender.com`
 
 ---
 

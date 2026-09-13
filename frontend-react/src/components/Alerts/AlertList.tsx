@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { AlertTriangle, ChevronRight, Filter, Clock, MapPin } from 'lucide-react';
 import { RiskBadge } from '../UI/RiskBadge';
-import type { AlertItem, RiskLevel } from '../../types';
+import type { AlertItem, RiskLevel, AlertStatus } from '../../types';
 
 interface AlertListProps {
   alerts: AlertItem[];
@@ -11,14 +11,17 @@ interface AlertListProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  GENERATED: 'bg-indigo-50 text-indigo-600 border-indigo-200',
   Sent: 'bg-red-50 text-[#DC2626] border-[#DC2626]/20',
   Acknowledged: 'bg-amber-50 text-[#F59E0B] border-[#F59E0B]/20',
   Resolved: 'bg-green-50 text-[#16A34A] border-[#16A34A]/20',
+  NOT_CONFIGURED: 'bg-slate-100 text-slate-500 border-slate-300',
+  FAILED: 'bg-red-100 text-red-800 border-red-300',
 };
 
 export const AlertList: React.FC<AlertListProps> = ({ alerts, loading, onSelect }) => {
   const [severityFilter, setSeverityFilter] = useState<RiskLevel | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Sent' | 'Acknowledged' | 'Resolved'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<AlertStatus | 'ALL'>('ALL');
 
   const filtered = useMemo(() => {
     return alerts.filter((a) => {
@@ -70,7 +73,7 @@ export const AlertList: React.FC<AlertListProps> = ({ alerts, loading, onSelect 
           ))}
         </div>
         <div className="flex gap-1 flex-wrap border-l border-slate-200 pl-2.5">
-          {(['ALL', 'Sent', 'Acknowledged', 'Resolved'] as const).map((st) => (
+          {(['ALL', 'GENERATED', 'Sent', 'Acknowledged', 'Resolved', 'NOT_CONFIGURED', 'FAILED'] as const).map((st) => (
             <button
               key={st}
               type="button"

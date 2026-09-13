@@ -31,9 +31,12 @@ export const AlertDetailModal: React.FC<AlertDetailModalProps> = ({
   };
 
   const statusColor = {
+    GENERATED: 'bg-indigo-50 text-indigo-600 border-indigo-200',
     Sent: 'bg-red-50 text-[#DC2626] border-[#DC2626]/20',
     Acknowledged: 'bg-amber-50 text-[#F59E0B] border-[#F59E0B]/20',
     Resolved: 'bg-green-50 text-[#16A34A] border-[#16A34A]/20',
+    NOT_CONFIGURED: 'bg-slate-100 text-slate-500 border-slate-300',
+    FAILED: 'bg-red-100 text-red-800 border-red-300',
   }[alert.status];
 
   return (

@@ -130,14 +130,21 @@ export const LocationDrawer: React.FC<LocationDrawerProps> = ({
           {/* AI Assessment */}
           {location.ai_assessment && (
             <div className="mx-5 mb-4 p-4 bg-[#071A2B]/4 rounded-xl border border-[#14B8A6]/15">
-              <div className="flex items-center gap-1.5 mb-2">
-                <BrainCircuit size={14} className="text-[#14B8A6]" />
-                <span className="text-xs font-semibold text-[#0F766E] tracking-wider uppercase">
-                  AI Assessment
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <BrainCircuit size={14} className="text-[#14B8A6]" />
+                  <span className="text-xs font-semibold text-[#0F766E] tracking-wider uppercase">
+                    AI Assessment
+                  </span>
+                </div>
+                {location.ai_assessment.startsWith('[ML UNAVAILABLE - RULE ENGINE FALLBACK]') && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-widest">
+                    ML Unavailable (Rule Engine)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                {location.ai_assessment}
+                {location.ai_assessment.replace('[ML UNAVAILABLE - RULE ENGINE FALLBACK] ', '')}
               </p>
             </div>
           )}

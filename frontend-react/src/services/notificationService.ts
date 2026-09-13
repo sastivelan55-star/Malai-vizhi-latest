@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
-export type NotificationSeverity = 'LOW' | 'MODERATE' | 'HIGH';
+export type NotificationSeverity = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
 interface AlertNotificationOptions {
   id?: string | number;

@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiBase = env.VITE_API_BASE_URL || env.VITE_API_URL || env.VITE_API_BASE || 'https://malai-vizhi.onrender.com'
+  const apiBase = env.VITE_API_BASE_URL || env.VITE_API_URL || env.VITE_API_BASE || 'https://backend-malaivizhi2-0.onrender.com'
 
   return {
     plugins: [

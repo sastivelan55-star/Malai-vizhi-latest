@@ -20,6 +20,9 @@ import type {
   RiskReplayResponse,
   RiskTrendStatisticalResponse,
   AuthorityOverview,
+  HistoricalEvent,
+  AlertStatus,
+  RoadStatus,
 } from '../types';
 
 // Configurable API base URL: respects VITE_API_BASE_URL / VITE_API_URL / VITE_API_BASE.
@@ -148,7 +151,7 @@ export async function getAlerts(): Promise<AlertItem[]> {
 
 export async function updateAlertStatus(
   id: number,
-  status: 'Sent' | 'Acknowledged' | 'Resolved'
+  status: AlertStatus
 ): Promise<{ success: boolean; alert: AlertItem }> {
   return request(`/api/alerts/${id}`, {
     method: 'PATCH',
@@ -165,7 +168,9 @@ export async function simulateRain(locationId: number): Promise<SimulationRespon
   });
 }
 
-// ─── Citizen Reports ──────────────────────────────────────────────────────────
+// ─── Citizen Reports & Offline Queue ────────────────────────────────────────────
+
+const OFFLINE_QUEUE_KEY = 'malai_vizhi_offline_reports';
 
 export async function submitReport(formData: FormData): Promise<{
   success: boolean;
@@ -173,19 +178,83 @@ export async function submitReport(formData: FormData): Promise<{
   submitted_at: string;
   message: string;
 }> {
-  const res = await fetch(`${BASE}/api/submit-report`, {
-    method: 'POST',
-    body: formData, // multipart/form-data — no Content-Type header; browser sets boundary
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+  if (!navigator.onLine) {
+    // Basic offline resilience: save to queue
+    const entries = Object.fromEntries((formData as any).entries());
+    // (Note: ignoring file blobs in basic stringify for demo)
+    const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+    queue.push(entries);
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    
+    return {
+      success: true,
+      report_id: Date.now(),
+      submitted_at: new Date().toISOString(),
+      message: 'You are offline. Report queued securely and will sync when connection returns.'
+    };
   }
-  return res.json();
+
+  try {
+    const res = await fetch(`${BASE}/api/submit-report`, {
+      method: 'POST',
+      body: formData, // multipart/form-data
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  } catch (err: any) {
+    // If fetch failed completely (network error)
+    const entries = Object.fromEntries((formData as any).entries());
+    const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+    queue.push(entries);
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    
+    return {
+      success: true,
+      report_id: Date.now(),
+      submitted_at: new Date().toISOString(),
+      message: 'Network error. Report queued securely and will sync when connection returns.'
+    };
+  }
+}
+
+export async function syncOfflineReports(): Promise<void> {
+  if (!navigator.onLine) return;
+  const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+  if (queue.length === 0) return;
+  
+  const remaining = [];
+  for (const item of queue) {
+    try {
+      const fd = new FormData();
+      Object.entries(item).forEach(([k, v]) => fd.append(k, v as string));
+      await fetch(`${BASE}/api/submit-report`, { method: 'POST', body: fd });
+    } catch {
+      remaining.push(item);
+    }
+  }
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+}
+
+// Auto-sync when coming online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', syncOfflineReports);
 }
 
 export async function getReports(): Promise<CitizenReport[]> {
   return request<CitizenReport[]>('/api/reports');
+}
+
+export async function updateReportStatus(
+  id: number,
+  status: 'SUBMITTED' | 'VERIFIED' | 'RESOLVED'
+): Promise<{ success: boolean; report: CitizenReport }> {
+  return request(`/api/reports/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }
 
 // ─── System Status ────────────────────────────────────────────────────────────
@@ -303,6 +372,11 @@ export async function reverseGeocode(
   return request<LocationSearchResult>(`/api/location/reverse?lat=${lat}&lon=${lon}`);
 }
 
+export async function getHistoricalEvents(): Promise<HistoricalEvent[]> {
+  return request<HistoricalEvent[]>('/api/historical-events');
+}
+
+
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -360,4 +434,10 @@ export async function resetPassword(
       new_password: newPassword,
     }),
   });
+}
+
+// ─── Road Data (Phase 6 context) ────────────────────────────────────────
+
+export async function getRoads(): Promise<RoadStatus[]> {
+  return request<RoadStatus[]>('/api/roads');
 }

@@ -9,6 +9,13 @@ interface RiskBadgeProps {
 }
 
 const config: Record<RiskLevel, { bg: string; text: string; border: string; dot: string; label: string }> = {
+  CRITICAL: {
+    bg: 'bg-indigo-50',
+    text: 'text-indigo-600',
+    border: 'border-indigo-300',
+    dot: 'bg-indigo-600',
+    label: 'Critical Risk',
+  },
   HIGH: {
     bg: 'bg-red-50',
     text: 'text-[#DC2626]',

@@ -1,39 +1,120 @@
 // src/pages/Dashboard.tsx
-import React, { useState, useCallback, useEffect } from 'react';
-import { Satellite, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Satellite, RefreshCw, Crosshair, Search, MapPin, Loader2, X } from 'lucide-react';
 import { Layout } from '../components/Layout/Layout';
 import { StatusBadge } from '../components/UI/StatusBadge';
 import { RiskOverviewCards } from '../components/Risk/RiskOverviewCards';
 import { StationMap } from '../components/Map/StationMap';
 import { LocationDrawer } from '../components/Risk/LocationDrawer';
+import { PointRiskPanel } from '../components/Risk/PointRiskPanel';
 import { EnvGauges } from '../components/Risk/EnvGauges';
 import { SimulationButton } from '../components/Risk/SimulationButton';
 import { ToastContainer, useToast } from '../components/UI/Toast';
 import { useRiskData, useLocation } from '../hooks/useRiskData';
 import { useSystemStatus } from '../hooks/useSystemStatus';
+import { Phase6Widget } from '../components/Risk/Phase6Widget';
+import { HistoricalLandslidesPanel } from '../components/Risk/HistoricalLandslidesPanel';
+import { RoadConnectivityPanel } from '../components/Risk/RoadConnectivityPanel';
+import { MLPredictionPanel } from '../components/Dashboard/MLPredictionPanel';
+import { ActiveWarningsPanel } from '../components/Dashboard/ActiveWarningsPanel';
+import { WeatherLinkedRiskPanel } from '../components/Risk/WeatherLinkedRiskPanel';
+import { EmergencyPriorityPanel } from '../components/Dashboard/EmergencyPriorityPanel';
 import { notifyAlert } from '../services/notificationService';
-import type { SimulationResponse } from '../types';
+import { searchLocations } from '../services/api';
+import type { SimulationResponse, LocationSearchResult, PointRiskAssessment } from '../types';
 
 export const Dashboard: React.FC = () => {
   const { data: locations, loading: locLoading, error: locError, refetch } = useRiskData();
   const { data: status, online, loading: statusLoading } = useSystemStatus();
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lon: number } | null>(null);
+  const [pointAssessment, setPointAssessment] = useState<PointRiskAssessment | null>(null);
   const { data: selectedLoc, loading: selLoading } = useLocation(selectedId);
   const { toasts, addToast, dismissToast } = useToast();
 
-  // Auto-select the highest risk station once loaded if nothing is selected yet
+  // Location search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Read query coordinates if navigated with ?lat=..&lon=..
   useEffect(() => {
-    if (locations.length > 0 && selectedId === null) {
-      const highest = [...locations].sort((a, b) => b.risk_score - a.risk_score)[0];
-      if (highest) {
-        setSelectedId(highest.id);
+    const params = new URLSearchParams(window.location.search);
+    const lat = params.get('lat');
+    const lon = params.get('lon');
+    if (lat && lon) {
+      const parsedLat = parseFloat(lat);
+      const parsedLon = parseFloat(lon);
+      if (!isNaN(parsedLat) && !isNaN(parsedLon)) {
+        setSelectedPoint({ lat: parsedLat, lon: parsedLon });
+        setSelectedId(null);
       }
     }
-  }, [locations, selectedId]);
+  }, []);
+
+  const hasAutoSelectedRef = useRef(false);
+
+  // Auto-select the highest risk station once loaded if nothing is selected yet on initial mount
+  useEffect(() => {
+    if (!hasAutoSelectedRef.current && locations.length > 0) {
+      hasAutoSelectedRef.current = true;
+      if (selectedId === null && selectedPoint === null) {
+        const highest = [...locations].sort((a, b) => b.risk_score - a.risk_score)[0];
+        if (highest) {
+          setSelectedId(highest.id);
+        }
+      }
+    }
+  }, [locations, selectedId, selectedPoint]);
 
   const handleSelectLocation = useCallback((id: number) => {
     setSelectedId(id);
+    setSelectedPoint(null);
+    setPointAssessment(null);
   }, []);
+
+  const handleMapClick = useCallback((lat: number, lon: number) => {
+    setSelectedPoint({ lat, lon });
+    setSelectedId(null);
+    setPointAssessment(null);
+  }, []);
+
+  // Search autocomplete handler
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    if (!q.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await searchLocations(q.trim(), 5);
+        setSearchResults(res || []);
+        setShowDropdown(true);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectSearchResult = (res: LocationSearchResult) => {
+    setSelectedPoint({ lat: res.latitude, lon: res.longitude });
+    setSelectedId(null);
+    setSearchQuery(res.name);
+    setShowDropdown(false);
+  };
+
 
   const handleSimSuccess = useCallback(async (result: SimulationResponse) => {
     addToast(
@@ -108,12 +189,89 @@ export const Dashboard: React.FC = () => {
               <RiskOverviewCards locations={locations} loading={locLoading} />
             </div>
 
+            {/* Any-Point Assessment Search & Quick Action Bar */}
+            <div className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-2.5 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-7 h-7 rounded-lg bg-[#14B8A6]/10 text-[#14B8A6] flex items-center justify-center flex-shrink-0">
+                  <Crosshair size={14} />
+                </div>
+                <div>
+                  <span className="font-bold text-[#102A43]">Any-Point Assessment: </span>
+                  <span className="text-slate-500">Tap anywhere on map or search coordinate</span>
+                </div>
+              </div>
+
+              {/* Location Search Bar */}
+              <div className="relative w-full sm:w-72">
+                <div className="relative flex items-center">
+                  <Search size={13} className="absolute left-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search place in India (e.g. Ooty)..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (searchResults.length > 0) {
+                          handleSelectSearchResult(searchResults[0]);
+                        }
+                      }
+                    }}
+                    onFocus={() => {
+                      if (searchResults.length > 0) setShowDropdown(true);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-7 py-1.5 text-xs text-[#102A43] placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#14B8A6] focus:border-[#14B8A6] transition-all"
+                  />
+                  {isSearching && (
+                    <Loader2 size={13} className="absolute right-2 text-slate-400 animate-spin" />
+                  )}
+                  {!isSearching && searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setShowDropdown(false);
+                      }}
+                      className="absolute right-2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Autocomplete Dropdown */}
+                {showDropdown && searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[500] max-h-48 overflow-y-auto">
+                    {searchResults.map((res, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectSearchResult(res)}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-start gap-2"
+                      >
+                        <MapPin size={13} className="text-[#14B8A6] mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-[#102A43] truncate">{res.name}</div>
+                          <div className="text-[10px] text-slate-400 truncate">{res.display_name}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Map — responsive height */}
             <div className="h-[340px] sm:h-[420px] lg:h-auto lg:flex-1 relative min-h-[300px]">
               <StationMap
                 locations={locations}
                 selectedId={selectedId}
                 onSelectLocation={handleSelectLocation}
+                selectedPoint={selectedPoint}
+                onMapClick={handleMapClick}
+                pointAssessment={pointAssessment}
               />
               {/* Map legend */}
               <div
@@ -130,7 +288,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-slate-600 font-medium text-[11px] sm:text-xs">{label}</span>
                   </div>
                 ))}
-                <span className="text-slate-400 font-medium hidden sm:inline">· Tap marker for details</span>
+                <span className="text-slate-400 font-medium hidden sm:inline">· Tap station or any point</span>
               </div>
             </div>
           </div>
@@ -138,33 +296,54 @@ export const Dashboard: React.FC = () => {
           {/* Right panel — sidebar */}
           <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-col lg:overflow-y-auto bg-[#F5F7F8]">
             <div className="p-3.5 sm:p-4 flex flex-col gap-4">
-              {/* Location Intelligence */}
-              {selectedId ? (
-                <LocationDrawer
-                  location={selectedLoc}
-                  loading={selLoading}
-                  onClose={() => setSelectedId(null)}
+              {/* If user clicked any point on the map or searched a location, display PointRiskPanel */}
+              {selectedPoint ? (
+                <PointRiskPanel
+                  point={selectedPoint}
+                  onClose={() => {
+                    setSelectedPoint(null);
+                    setPointAssessment(null);
+                  }}
+                  onAssessmentLoaded={(data) => setPointAssessment(data)}
                 />
+              ) : selectedId ? (
+                /* Location Intelligence for Monitored Station */
+                <>
+                  <LocationDrawer
+                    location={selectedLoc}
+                    loading={selLoading}
+                    onClose={() => setSelectedId(null)}
+                  />
+                  {/* Environmental gauges */}
+                  <EnvGauges location={selectedLoc} allLocations={locations} />
+                  {/* Simulation */}
+                  <SimulationButton
+                    locationId={selectedId}
+                    locationName={selectedLoc?.name}
+                    onSuccess={handleSimSuccess}
+                    onError={handleSimError}
+                  />
+                  {/* Phase 6 Route Analysis */}
+                  <Phase6Widget 
+                    startLat={selectedLoc?.latitude || 0} 
+                    startLon={selectedLoc?.longitude || 0} 
+                    locationName={selectedLoc?.name} 
+                  />
+                </>
               ) : (
                 <div className="bg-white rounded-xl border border-slate-100 p-6 text-center shadow-sm">
                   <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
                     <Satellite size={16} className="text-slate-400" />
                   </div>
                   <p className="text-xs font-semibold text-slate-500">Location Intelligence</p>
-                  <p className="text-xs text-slate-400 mt-1">Select a station on the map to view detailed telemetry.</p>
+                  <p className="text-xs text-slate-400 mt-1">Select a station or click anywhere on the map to assess any coordinate.</p>
                 </div>
               )}
-
-              {/* Environmental gauges */}
-              <EnvGauges location={selectedLoc} allLocations={locations} />
-
-              {/* Simulation */}
-              <SimulationButton
-                locationId={selectedId}
-                locationName={selectedLoc?.name}
-                onSuccess={handleSimSuccess}
-                onError={handleSimError}
-              />
+              
+              {/* Emergency Prioritisation */}
+              {!selectedId && !selectedPoint && locations.length > 0 && (
+                <EmergencyPriorityPanel locations={locations} onSelectLocation={handleSelectLocation} />
+              )}
 
               {/* Station list quick select */}
               {locations.length > 0 && (
@@ -198,6 +377,21 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Weather-Linked Risk Panel */}
+              <WeatherLinkedRiskPanel location={selectedLoc} allLocations={locations} />
+              
+              {/* ML Prediction Architecture Panel */}
+              <MLPredictionPanel />
+
+              {/* Active Warnings Panel */}
+              <ActiveWarningsPanel />
+
+              {/* Historical Context Panel */}
+              <HistoricalLandslidesPanel />
+              
+              {/* Road Connectivity Panel */}
+              <RoadConnectivityPanel />
             </div>
           </div>
         </div>

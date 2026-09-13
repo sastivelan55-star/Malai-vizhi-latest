@@ -5,7 +5,7 @@ import { Layout } from '../components/Layout/Layout';
 import { ReportForm } from '../components/Reports/ReportForm';
 import { VerifiedReports } from '../components/Reports/VerifiedReports';
 import { ToastContainer, useToast } from '../components/UI/Toast';
-import { getReports } from '../services/api';
+import { getReports, updateReportStatus } from '../services/api';
 import type { CitizenReport } from '../types';
 
 export const CitizenReports: React.FC = () => {
@@ -36,6 +36,16 @@ export const CitizenReports: React.FC = () => {
 
   const handleError = (msg: string) => {
     addToast('error', 'Submission Failed', msg);
+  };
+
+  const handleUpdateStatus = async (id: number, status: 'SUBMITTED' | 'VERIFIED' | 'RESOLVED') => {
+    try {
+      await updateReportStatus(id, status);
+      addToast('success', 'Status Updated', `Report status changed to ${status}.`);
+      fetchReports();
+    } catch (err: any) {
+      addToast('error', 'Update Failed', err.message);
+    }
   };
 
   return (
@@ -72,7 +82,7 @@ export const CitizenReports: React.FC = () => {
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
-          <VerifiedReports reports={reports} loading={loading} />
+          <VerifiedReports reports={reports} loading={loading} onUpdateStatus={handleUpdateStatus} />
         </div>
       </div>
 
