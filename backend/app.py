@@ -1311,6 +1311,15 @@ def submit_report():
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (location, description, lat_val, lon_val, category, photo_path, video_path, submitted_at))
     report_id = cursor.lastrowid
+
+    # Generate Notification (Group 4)
+    notif_title = f"New {category} Report"
+    notif_msg = f"Report submitted for location: {location}."
+    conn.execute("""
+        INSERT INTO notifications (report_id, category, title, message, latitude, longitude, timestamp, recipient_role)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (report_id, "CITIZEN REPORT", notif_title, notif_msg, lat_val, lon_val, submitted_at, "ALL"))
+
     conn.commit()
     conn.close()
 
@@ -1326,6 +1335,26 @@ def submit_report():
         "message":      "Report securely received and queued for emergency verification."
     }), 201
 
+
+@app.route("/api/notifications", methods=["GET"])
+def get_notifications():
+    """Fetch notifications for the current role context (stubbed to ALL)."""
+    conn = get_connection()
+    cursor = conn.execute("SELECT * FROM notifications ORDER BY timestamp DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    notifications = [dict(r) for r in rows]
+    return jsonify(notifications)
+
+@app.route("/api/notifications/<int:notif_id>/read", methods=["PATCH"])
+def mark_notification_read(notif_id):
+    """Mark a notification as read."""
+    conn = get_connection()
+    conn.execute("UPDATE notifications SET is_read = 1 WHERE id = ?", (notif_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
 
 @app.route("/api/reports", methods=["GET"])
 def get_reports():
@@ -1679,6 +1708,47 @@ def get_gis_layers():
 # ---------------------------------------------------------------------------
 # DB + seed (run on every startup — idempotent)
 # ---------------------------------------------------------------------------
+
+@app.route("/api/weather/current", methods=["GET"])
+def get_weather_current():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if not lat or not lon:
+        return jsonify({"error": "Missing lat/lon"}), 400
+    
+    from providers.weather_provider import DefaultWeatherProvider
+    provider = DefaultWeatherProvider()
+    data = provider.get_weather(lat, lon)
+    if not data:
+        return jsonify({"error": "Weather data unavailable"}), 503
+    return jsonify(data)
+
+@app.route("/api/weather/forecast", methods=["GET"])
+def get_weather_forecast():
+    lat = request.args.get("lat", type=float)
+    lon = request.args.get("lon", type=float)
+    if not lat or not lon:
+        return jsonify({"error": "Missing lat/lon"}), 400
+    
+    from providers.weather_provider import DefaultWeatherProvider
+    provider = DefaultWeatherProvider()
+    data = provider.get_weather(lat, lon)
+    if not data:
+        return jsonify({"error": "Weather data unavailable"}), 503
+    return jsonify({
+        "forecast_24h": data.get("forecast_24h"),
+        "seven_day_trend": data.get("seven_day_trend"),
+        "temperature": data.get("temperature"),
+        "humidity": data.get("humidity"),
+        "wind_speed": data.get("wind_speed")
+    })
+
+@app.route("/api/weather/layers", methods=["GET"])
+def get_weather_layers():
+    return jsonify({
+        "configured": False,
+        "message": "Raster layers NOT_CONFIGURED. Using point-based provider."
+    })
 
 init_db()
 seed()

@@ -262,6 +262,25 @@ def init_db():
         )
     """)
 
+    # ---------- notifications (Group 4) ----------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id      INTEGER,
+            category       TEXT    NOT NULL DEFAULT 'SYSTEM ALERT',
+            title          TEXT    NOT NULL,
+            message        TEXT    NOT NULL,
+            latitude       REAL,
+            longitude      REAL,
+            timestamp      TEXT    NOT NULL DEFAULT (datetime('now')),
+            priority       TEXT    NOT NULL DEFAULT 'NORMAL',
+            status         TEXT    NOT NULL DEFAULT 'NEW',
+            recipient_role TEXT    NOT NULL DEFAULT 'ALL',
+            is_read        INTEGER NOT NULL DEFAULT 0,
+            action_state   TEXT    NOT NULL DEFAULT 'PENDING'
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("[models] ✅ Database tables initialised and migrated.")

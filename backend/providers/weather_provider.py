@@ -38,6 +38,7 @@ class DefaultWeatherProvider(WeatherProvider):
         params = {
             "latitude": lat,
             "longitude": lon,
+            "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation",
             "hourly": "precipitation",
             "daily": "precipitation_sum",
             "past_days": 7,
@@ -52,8 +53,13 @@ class DefaultWeatherProvider(WeatherProvider):
                 return None
 
             data = resp.json()
+            current = data.get("current", {})
             hourly = data.get("hourly", {})
             daily = data.get("daily", {})
+
+            temp = current.get("temperature_2m", 0.0)
+            humidity = current.get("relative_humidity_2m", 0)
+            wind = current.get("wind_speed_10m", 0.0)
 
             precip_list = hourly.get("precipitation", [])
             daily_precip = daily.get("precipitation_sum", [])
@@ -166,6 +172,9 @@ class DefaultWeatherProvider(WeatherProvider):
             }
 
             weather_data = {
+                "temperature": temp,
+                "humidity": humidity,
+                "wind_speed": wind,
                 "rainfall_1h": obs_1h,
                 "rainfall_3h": obs_3h,
                 "rainfall_6h": obs_6h,

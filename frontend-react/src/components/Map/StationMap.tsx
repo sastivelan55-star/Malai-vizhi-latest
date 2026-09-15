@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import type { LocationData, RoadStatus } from '../../types';
 import { COLORS, MAP_CENTER, MAP_ZOOM } from '../../data/constants';
 import { getRoads, API_BASE } from '../../services/api';
+import { DemoPanel } from '../UI/DemoPanel';
 
 // Fix Leaflet default icon path issues in Vite
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -343,12 +344,20 @@ export const StationMap: React.FC<StationMapProps> = memo(({
   }, [selectedId, locations]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full min-h-[300px] rounded-xl overflow-hidden shadow-inner"
-      role="application"
-      aria-label="Interactive Northeast India monitoring station map"
-    />
+    <div className="relative w-full h-full min-h-[300px] rounded-xl overflow-hidden shadow-inner">
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-sm pointer-events-auto shadow-lg rounded-xl">
+        <DemoPanel
+          title="Interactive regional map"
+          description="Toggle roads, villages, infrastructure and historical landslides to understand local exposure."
+        />
+      </div>
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        role="application"
+        aria-label="Interactive Northeast India monitoring station map"
+      />
+    </div>
   );
 });
 

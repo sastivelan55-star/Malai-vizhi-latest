@@ -25,6 +25,7 @@ import {
   getStoredToken,
   getStoredUser,
 } from '../services/api';
+import { DemoPanel } from '../components/UI/DemoPanel';
 import { AuthorityOverviewPanel } from '../components/Risk/AuthorityOverviewPanel';
 import type { AuthUser } from '../types';
 
@@ -296,6 +297,10 @@ export const AdminLogin: React.FC = () => {
               </div>
 
               {/* Authority Operational Command Center */}
+              <DemoPanel
+                title="Review and escalate reports"
+                description="Review a citizen report, verify it, escalate it and track the response."
+              />
               <AuthorityOverviewPanel
                 onSelectLocation={(lat, lon) => {
                   navigate(`/dashboard?lat=${lat}&lon=${lon}`);

@@ -21,9 +21,12 @@ import { WeatherLinkedRiskPanel } from '../components/Risk/WeatherLinkedRiskPane
 import { EmergencyPriorityPanel } from '../components/Dashboard/EmergencyPriorityPanel';
 import { notifyAlert } from '../services/notificationService';
 import { searchLocations } from '../services/api';
+import { DemoPanel } from '../components/UI/DemoPanel';
+import { useTranslation } from 'react-i18next';
 import type { SimulationResponse, LocationSearchResult, PointRiskAssessment } from '../types';
 
 export const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { data: locations, loading: locLoading, error: locError, refetch } = useRiskData();
   const { data: status, online, loading: statusLoading } = useSystemStatus();
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -148,9 +151,9 @@ export const Dashboard: React.FC = () => {
             <div>
               <h1 className="text-base sm:text-lg font-bold text-[#102A43] flex items-center gap-2">
                 <Satellite size={16} className="text-[#14B8A6] flex-shrink-0" />
-                <span>Live Monitoring Dashboard</span>
+                <span>{t('dashboard.title')}</span>
               </h1>
-              <p className="text-xs text-slate-400 mt-0.5">Northeast India · 12 Station Network</p>
+              <p className="text-xs text-slate-400 mt-0.5">{t('dashboard.subtitle', 'Northeast India · 12 Station Network')}</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {!statusLoading && (
@@ -175,7 +178,7 @@ export const Dashboard: React.FC = () => {
         {locError && !online && (
           <div className="flex-shrink-0 bg-[#DC2626]/10 border-b border-[#DC2626]/20 px-4 sm:px-6 py-2">
             <p className="text-xs text-[#DC2626] font-semibold text-center">
-              BACKEND OFFLINE — Unable to reach server. Retrying…
+              {t('common.backendOffline', 'BACKEND OFFLINE — Unable to reach server. Retrying…')}
             </p>
           </div>
         )}
@@ -189,6 +192,13 @@ export const Dashboard: React.FC = () => {
               <RiskOverviewCards locations={locations} loading={locLoading} />
             </div>
 
+            <div className="flex-shrink-0">
+              <DemoPanel
+                title={t('demo.dashboard.title', 'Select a high-risk location')}
+                description={t('demo.dashboard.desc', 'Select any HIGH or CRITICAL risk station on the map to see rainfall, soil moisture, slope angle, risk score and recommended priority. Use the Simulate Rain button to watch a live risk escalation in action.')}
+              />
+            </div>
+
             {/* Any-Point Assessment Search & Quick Action Bar */}
             <div className="flex-shrink-0 bg-white border border-slate-100 rounded-xl p-2.5 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2 text-xs">
@@ -196,8 +206,8 @@ export const Dashboard: React.FC = () => {
                   <Crosshair size={14} />
                 </div>
                 <div>
-                  <span className="font-bold text-[#102A43]">Any-Point Assessment: </span>
-                  <span className="text-slate-500">Tap anywhere on map or search coordinate</span>
+                  <span className="font-bold text-[#102A43]">{t('dashboard.anyPointTitle', 'Any-Point Assessment')}: </span>
+                  <span className="text-slate-500">{t('dashboard.anyPointDesc', 'Tap anywhere on map or search coordinate')}</span>
                 </div>
               </div>
 
@@ -207,7 +217,7 @@ export const Dashboard: React.FC = () => {
                   <Search size={13} className="absolute left-2.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search place in India (e.g. Ooty)..."
+                    placeholder={t('dashboard.searchPlaceholder', 'Search place in India (e.g. Ooty)...')}
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     onKeyDown={(e) => {

@@ -1,10 +1,12 @@
 // src/pages/Alerts.tsx
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Activity, CheckCircle, Bell, BellRing, Volume2, Vibrate } from 'lucide-react';
 import { Layout } from '../components/Layout/Layout';
 import { AlertList } from '../components/Alerts/AlertList';
 import { AlertDetailModal } from '../components/Alerts/AlertDetailModal';
 import { ToastContainer, useToast } from '../components/UI/Toast';
+import { DemoPanel } from '../components/UI/DemoPanel';
 import { useAlerts } from '../hooks/useAlerts';
 import {
   getNotificationPermission,
@@ -17,6 +19,7 @@ import {
 import type { AlertItem, AlertStatus } from '../types';
 
 export const Alerts: React.FC = () => {
+  const { t } = useTranslation();
   const { data: alerts, loading, acknowledge } = useAlerts();
   const [selected, setSelected] = useState<AlertItem | null>(null);
   const { toasts, addToast, dismissToast } = useToast();
@@ -73,10 +76,8 @@ export const Alerts: React.FC = () => {
         {/* Page header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#102A43]">Early Warning Alerts</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Monitor and manage landslide risk alerts across the Northeast India sensor network.
-            </p>
+            <h1 className="text-2xl font-bold text-[#102A43]">{t('alerts.title')}</h1>
+            <p className="text-sm text-slate-500 mt-1">{t('alerts.subtitle')}</p>
           </div>
 
           {/* Notification & Sound/Vibration Controls */}
@@ -140,6 +141,12 @@ export const Alerts: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* SIH Demo Panel */}
+        <DemoPanel
+          title="Test the alert escalation workflow"
+          description="Watch a risk escalation generate an early warning. Click 'Test Feedback' above to experience sound + vibration notification — exactly as it fires for a real HIGH risk event. Acknowledge and Resolve alerts to track response workflow."
+        />
 
         {/* Alert list */}
         <AlertList alerts={alerts} loading={loading} onSelect={setSelected} />

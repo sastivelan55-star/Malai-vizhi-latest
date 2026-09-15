@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Droplets, Thermometer, Wind, CloudRain, Activity, Battery } from 'lucide-react';
 import type { LocationData } from '../../types';
 import { API_BASE } from '../../services/api';
+import { DemoPanel } from '../UI/DemoPanel';
+import { useTranslation } from 'react-i18next';
 
 interface EnvGaugesProps {
   location: LocationData | null;
@@ -45,6 +47,7 @@ const Gauge: React.FC<GaugeProps> = ({ label, value, unit, max, icon: Icon, colo
 };
 
 export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) => {
+  const { t } = useTranslation();
   // Use selected location or compute averages
   const target = location || null;
   const avgRain = allLocations.length ? allLocations.reduce((s, l) => s + l.rainfall_mm, 0) / allLocations.length : 0;
@@ -67,7 +70,11 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <DemoPanel
+        title={t('demo.sensors.title', 'View DEMO sensor telemetry')}
+        description={t('demo.sensors.desc', 'View live rainfall, soil moisture, and inclination telemetry from field IoT sensors. These gauges display actual readings when a station is selected, or region averages otherwise.')}
+      />
+      <div className="flex items-center justify-between mt-3">
         <h3 className="text-sm font-semibold text-[#102A43]">Environmental Conditions</h3>
         {!target ? (
           <span className="text-xs text-slate-400">Regional Average</span>
@@ -88,7 +95,7 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Gauge
-          label="Rainfall"
+          label={t('weather.rainfall', 'Rainfall')}
           value={target ? target.rainfall_mm : avgRain}
           unit=" mm"
           max={250}
@@ -96,7 +103,7 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
           color="#14B8A6"
         />
         <Gauge
-          label="Soil Moisture"
+          label={t('dashboard.soilMoisture', 'Soil Moisture')}
           value={target ? target.soil_moisture : avgMoist}
           unit="%"
           max={100}
@@ -105,7 +112,7 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
         />
         {target?.temperature !== undefined && (
           <Gauge
-            label="Temperature"
+            label={t('weather.temperature', 'Temperature')}
             value={target.temperature}
             unit="°C"
             max={45}
@@ -115,7 +122,7 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
         )}
         {target?.humidity !== undefined && (
           <Gauge
-            label="Humidity"
+            label={t('weather.humidity', 'Humidity')}
             value={target.humidity}
             unit="%"
             max={100}
@@ -125,7 +132,7 @@ export const EnvGauges: React.FC<EnvGaugesProps> = ({ location, allLocations }) 
         )}
         {target?.inclination_deg !== undefined && (
           <Gauge
-            label="Inclination"
+            label={t('weather.inclination', 'Inclination')}
             value={target.inclination_deg}
             unit="°"
             max={15}

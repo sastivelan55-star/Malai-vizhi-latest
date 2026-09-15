@@ -1,14 +1,17 @@
 // src/pages/CitizenReports.tsx
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users, RefreshCw } from 'lucide-react';
 import { Layout } from '../components/Layout/Layout';
 import { ReportForm } from '../components/Reports/ReportForm';
 import { VerifiedReports } from '../components/Reports/VerifiedReports';
 import { ToastContainer, useToast } from '../components/UI/Toast';
+import { DemoPanel } from '../components/UI/DemoPanel';
 import { getReports, updateReportStatus } from '../services/api';
 import type { CitizenReport } from '../types';
 
 export const CitizenReports: React.FC = () => {
+  const { t } = useTranslation();
   const [reports, setReports] = useState<CitizenReport[]>([]);
   const [loading, setLoading] = useState(true);
   const { toasts, addToast, dismissToast } = useToast();
@@ -54,11 +57,13 @@ export const CitizenReports: React.FC = () => {
         {/* Left — form */}
         <div>
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-[#102A43]">Report a Landslide Risk</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Your observation can help identify emerging hazards.
-            </p>
+            <h1 className="text-2xl font-bold text-[#102A43]">{t('reports.title')}</h1>
+            <p className="text-sm text-slate-500 mt-1">{t('reports.subtitle')}</p>
           </div>
+          <DemoPanel
+            title="Submit a geo-tagged report"
+            description="Fill in the report form below and submit a geo-tagged landslide or road hazard observation. Your report enters the verification pipeline. View the status in the Community Reports panel on the right — it updates to Verified or Resolved as authorities respond."
+          />
           <ReportForm onSuccess={handleSuccess} onError={handleError} />
         </div>
 

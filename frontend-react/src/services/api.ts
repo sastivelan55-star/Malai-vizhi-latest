@@ -32,32 +32,21 @@ import type {
 // - In deployed full-stack (Flask serving React dist on Render): uses relative paths '' to hit same-origin API
 // - In separate static deployment (e.g. Vercel, Netlify, Render Static): uses configured production backend URL
 export function resolveApiBase(): string {
-  // 1. Native Capacitor mobile environment
-  const isCapacitor = typeof window !== 'undefined' && typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined';
-  if (isCapacitor) {
-    const envUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '').trim();
-    return (envUrl || 'https://backend-malaivizhi2-0.onrender.com').replace(/\/+$/, '');
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
   }
 
-  // 2. Browser runtime: if served from same origin (localhost, 127.0.0.1, or malai-vizhi.onrender.com),
-  // use relative paths '' to guarantee 100% reliable zero-CORS communication.
+  // otherwise in local development
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '[::1]'
-    ) {
-      return 'https://backend-malaivizhi2-0.onrender.com';
-    }
-    if (hostname === 'malai-vizhi.onrender.com') {
-      return '';
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
+      return 'http://localhost:5000';
     }
   }
 
-  // 3. Separate static deployment or fallback
-  const raw = ((import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE) as string | undefined)?.trim();
-  return (raw || 'https://backend-malaivizhi2-0.onrender.com').replace(/\/+$/, '');
+  // otherwise for production
+  return 'https://backend-malaivizhi2-0.onrender.com';
 }
 
 export const API_BASE = resolveApiBase();

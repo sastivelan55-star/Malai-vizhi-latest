@@ -1,15 +1,19 @@
-// src/pages/Analytics.tsx
 import React, { useEffect, useState } from 'react';
 import { BarChart2, TrendingUp, Zap, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Layout } from '../components/Layout/Layout';
 import { RegionalBarChart } from '../components/Analytics/RegionalBarChart';
 import { RainfallTrendChart } from '../components/Analytics/RainfallTrendChart';
 import { RiskPieChart } from '../components/Analytics/RiskPieChart';
+import { WeatherMap } from '../components/Analytics/WeatherMap';
+import { WeatherForecastPanel } from '../components/Analytics/WeatherForecastPanel';
+import { DemoPanel } from '../components/UI/DemoPanel';
 import { getAnalytics } from '../services/api';
 import { useRiskData } from '../hooks/useRiskData';
 import type { AnalyticsData } from '../types';
 
 export const Analytics: React.FC = () => {
+  const { t } = useTranslation();
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const { data: locations } = useRiskData();
@@ -19,10 +23,10 @@ export const Analytics: React.FC = () => {
   }, []);
 
   const kpiCards = analytics ? [
-    { label: 'Stations Monitored', value: analytics.total_monitored, icon: BarChart2, suffix: 'stations', color: '#14B8A6' },
-    { label: 'Alerts Issued', value: analytics.total_alerts_issued, icon: TrendingUp, suffix: 'total', color: '#F59E0B' },
-    { label: 'Model Accuracy', value: `${analytics.model_accuracy}%`, icon: Zap, suffix: '', color: '#16A34A' },
-    { label: 'Avg Lead Time', value: `${analytics.lead_time_hours}h`, icon: Clock, suffix: 'warning lead', color: '#0F766E' },
+    { label: t('analytics.stationsMonitored'), value: analytics.total_monitored, icon: BarChart2, color: '#14B8A6' },
+    { label: t('analytics.alertsIssued'), value: analytics.total_alerts_issued, icon: TrendingUp, color: '#F59E0B' },
+    { label: t('analytics.modelAccuracy'), value: `${analytics.model_accuracy}%`, icon: Zap, color: '#16A34A' },
+    { label: t('analytics.avgLeadTime'), value: `${analytics.lead_time_hours}h`, icon: Clock, color: '#0F766E' },
   ] : [];
 
   return (
@@ -30,11 +34,15 @@ export const Analytics: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-[#102A43]">Climate & Risk Analytics</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Regional intelligence and system performance metrics from the MALAI VIZHI monitoring network.
-          </p>
+          <h1 className="text-2xl font-bold text-[#102A43]">{t('analytics.title')}</h1>
+          <p className="text-sm text-slate-500 mt-1">{t('analytics.subtitle')}</p>
         </div>
+
+        {/* SIH Demo Panel */}
+        <DemoPanel
+          title="Switch weather layers on the map"
+          description={t('analytics.subtitle') + ' — Switch between Rainfall, Temperature, Humidity, and Wind layers on the Regional Weather Map to compare conditions around high-risk areas. Hover any point to see all telemetry.'}
+        />
 
         {/* KPI Cards */}
         {loading ? (
@@ -59,6 +67,16 @@ export const Analytics: React.FC = () => {
             ))}
           </div>
         )}
+
+        {/* Weather Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <WeatherForecastPanel />
+          </div>
+          <div>
+            <WeatherMap />
+          </div>
+        </div>
 
         {/* Charts row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -129,7 +147,7 @@ export const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Data source note — wraps cleanly on mobile */}
+        {/* Data source note */}
         <div className="bg-[#071A2B] rounded-xl p-4 flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="text-xs font-semibold text-white/40 tracking-wider uppercase">Data Sources:</span>
           <span className="text-xs text-[#14B8A6] font-semibold">NASA POWER AG Satellite</span>
@@ -137,6 +155,8 @@ export const Analytics: React.FC = () => {
           <span className="text-xs text-white/60">Ground Sensor Network</span>
           <span className="text-white/20 hidden sm:inline">·</span>
           <span className="text-xs text-white/60">Physics-Informed XGBoost Model v2</span>
+          <span className="text-white/20 hidden sm:inline">·</span>
+          <span className="text-xs text-white/60">Open-Meteo ERA5 Reanalysis</span>
         </div>
       </div>
     </Layout>
