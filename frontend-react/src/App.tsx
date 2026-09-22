@@ -12,7 +12,7 @@ import { AdminLogin } from './pages/AdminLogin';
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* Main Routes */}
         <Route path="/" element={<Landing />} />
