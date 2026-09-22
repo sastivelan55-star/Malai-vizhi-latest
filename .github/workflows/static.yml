@@ -44,6 +44,9 @@ jobs:
       - name: Verify dist/index.html
         working-directory: frontend-react
         run: test -f dist/index.html || (echo "dist/index.html not found!" && exit 1)
+      - name: Add 404.html for SPA routing
+        working-directory: frontend-react
+        run: cp dist/index.html dist/404.html
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
