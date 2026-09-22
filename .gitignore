@@ -44,7 +44,6 @@ Thumbs.db
 npm-debug.log*
 
 # Specific Backend Repository Exclusions (Do Not Commit)
-frontend-react/
 legacy/
 data/
 fix_imports.py
