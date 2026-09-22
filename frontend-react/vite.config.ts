@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const apiBase = env.VITE_API_BASE_URL || env.VITE_API_URL || env.VITE_API_BASE || 'https://backend-malaivizhi2-0.onrender.com'
 
   return {
+    base: '/Malai-vizhi-latest/',
     plugins: [
       react(),
       VitePWA({
